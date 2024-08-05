@@ -1,6 +1,6 @@
 {
     "name": "flowise",
-    "version": "2.0.1",
+    "version": "2.0.2",
     "private": true,
     "homepage": "https://flowiseai.com",
     "workspaces": [
@@ -58,7 +58,8 @@
             "sqlite3"
         ],
         "overrides": {
-            "@langchain/core": "0.2.18"
+            "@langchain/core": "0.2.18",
+            "@langchain/aws": "^0.0.6"
         }
     },
     "engines": {
