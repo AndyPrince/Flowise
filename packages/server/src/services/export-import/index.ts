@@ -25,6 +25,8 @@ import executionService, { ExecutionFilters } from '../executions'
 import marketplacesService from '../marketplaces'
 import toolsService from '../tools'
 import variableService from '../variables'
+import { Platform } from '../../Interface'
+import { sanitizeNullBytes } from '../../utils/sanitize.util'
 
 type ExportInput = {
     agentflow: boolean
@@ -88,7 +90,7 @@ const convertExportInput = (body: any): ExportInput => {
 }
 
 const FileDefaultName = 'ExportData.json'
-const exportData = async (exportInput: ExportInput, activeWorkspaceId?: string): Promise<{ FileDefaultName: string } & ExportData> => {
+const exportData = async (exportInput: ExportInput, activeWorkspaceId: string): Promise<{ FileDefaultName: string } & ExportData> => {
     try {
         let AgentFlow: ChatFlow[] | { data: ChatFlow[]; total: number } =
             exportInput.agentflow === true ? await chatflowService.getAllChatflows('MULTIAGENT', activeWorkspaceId) : []
@@ -99,17 +101,17 @@ const exportData = async (exportInput: ExportInput, activeWorkspaceId?: string):
         AgentFlowV2 = 'data' in AgentFlowV2 ? AgentFlowV2.data : AgentFlowV2
 
         let AssistantCustom: Assistant[] =
-            exportInput.assistantCustom === true ? await assistantService.getAllAssistants('CUSTOM', activeWorkspaceId) : []
+            exportInput.assistantCustom === true ? await assistantService.getAllAssistants(activeWorkspaceId, 'CUSTOM') : []
 
         let AssistantFlow: ChatFlow[] | { data: ChatFlow[]; total: number } =
             exportInput.assistantCustom === true ? await chatflowService.getAllChatflows('ASSISTANT', activeWorkspaceId) : []
         AssistantFlow = 'data' in AssistantFlow ? AssistantFlow.data : AssistantFlow
 
         let AssistantOpenAI: Assistant[] =
-            exportInput.assistantOpenAI === true ? await assistantService.getAllAssistants('OPENAI', activeWorkspaceId) : []
+            exportInput.assistantOpenAI === true ? await assistantService.getAllAssistants(activeWorkspaceId, 'OPENAI') : []
 
         let AssistantAzure: Assistant[] =
-            exportInput.assistantAzure === true ? await assistantService.getAllAssistants('AZURE', activeWorkspaceId) : []
+            exportInput.assistantAzure === true ? await assistantService.getAllAssistants(activeWorkspaceId, 'AZURE') : []
 
         let ChatFlow: ChatFlow[] | { data: ChatFlow[]; total: number } =
             exportInput.chatflow === true ? await chatflowService.getAllChatflows('CHATFLOW', activeWorkspaceId) : []
@@ -547,6 +549,8 @@ async function replaceDuplicateIdsForVariable(queryRunner: QueryRunner, original
         const records = await queryRunner.manager.find(Variable, {
             where: { id: In(ids) }
         })
+        if (getRunningExpressApp().identityManager.getPlatformType() === Platform.CLOUD)
+            originalData.Variable = originalData.Variable.filter((variable) => variable.type !== 'runtime')
         if (records.length < 0) return originalData
         for (let record of records) {
             const oldId = record.id
@@ -749,6 +753,8 @@ const importData = async (importData: ExportData, orgId: string, activeWorkspace
                 importData.Variable = insertWorkspaceId(importData.Variable, activeWorkspaceId)
                 importData = await replaceDuplicateIdsForVariable(queryRunner, importData, importData.Variable)
             }
+
+            importData = sanitizeNullBytes(importData)
 
             await queryRunner.startTransaction()
 
